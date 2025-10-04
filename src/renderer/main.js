@@ -127,6 +127,11 @@ function onState (err, _state) {
   // Give global trackers
   setGlobalTrackers()
 
+  // Set tracker blocking state
+  if (state.saved.prefs.blockTrackers) {
+    setTrackerBlocking(true)
+  }
+
   // Restart everything we were torrenting last time the app ran
   resumeTorrents()
 
@@ -318,6 +323,7 @@ const dispatchHandlers = {
   updatePreferences: (key, value) => controllers.prefs().update(key, value),
   checkDownloadPath,
   updateGlobalTrackers: (trackers) => setGlobalTrackers(trackers),
+  updateTrackerBlocking: (shouldBlock) => setTrackerBlocking(shouldBlock),
   startFolderWatcher: () => controllers.folderWatcher().start(),
   stopFolderWatcher: () => controllers.folderWatcher().stop(),
 
@@ -422,6 +428,10 @@ function escapeBack () {
 
 function setGlobalTrackers () {
   controllers.torrentList().setGlobalTrackers(state.getGlobalTrackers())
+}
+
+function setTrackerBlocking (shouldBlock) {
+  controllers.torrentList().setTrackerBlocking(shouldBlock)
 }
 
 // Starts all torrents that aren't paused on program startup

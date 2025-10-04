@@ -33,6 +33,9 @@ class PreferencesPage extends React.Component {
     this.handleSetGlobalTrackers =
       this.handleSetGlobalTrackers.bind(this)
 
+    this.handleBlockTrackersChange =
+      this.handleBlockTrackersChange.bind(this)
+
     const globalTrackers = this.props.state.getGlobalTrackers().join('\n')
 
     this.state = {
@@ -272,6 +275,25 @@ class PreferencesPage extends React.Component {
     dispatch('updateGlobalTrackers', announceList)
   }
 
+  handleBlockTrackersChange (e, isChecked) {
+    dispatch('updatePreferences', 'blockTrackers', isChecked)
+    dispatch('updateTrackerBlocking', isChecked)
+  }
+
+  blockTrackersCheckbox () {
+    return (
+      <Preference>
+        <Checkbox
+          className='control'
+          checked={this.props.state.saved.prefs.blockTrackers}
+          label='Block all trackers (DHT-only mode)'
+          onCheck={this.handleBlockTrackersChange}
+        />
+        <p>When enabled, all tracker communication is blocked. Torrents will use only DHT and local peer discovery.</p>
+      </Preference>
+    )
+  }
+
   render () {
     const style = {
       color: colors.grey400,
@@ -298,6 +320,7 @@ class PreferencesPage extends React.Component {
           {this.soundNotificationsCheckbox()}
         </PreferencesSection>
         <PreferencesSection title='Trackers'>
+          {this.blockTrackersCheckbox()}
           {this.setGlobalTrackers()}
         </PreferencesSection>
       </div>
@@ -330,6 +353,7 @@ class Preference extends React.Component {
   render () {
     const style = { marginBottom: 10 }
     return (<div style={style}>{this.props.children}</div>)
+    )
   }
 }
 

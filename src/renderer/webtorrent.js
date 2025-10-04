@@ -47,6 +47,7 @@ const PEER_ID = Buffer.from(VERSION_PREFIX + crypto.randomBytes(9).toString('bas
 // Connect to the WebTorrent and BitTorrent networks. WebTorrent Desktop is a hybrid
 // client, as explained here: https://webtorrent.io/faq
 let client = window.client = new WebTorrent({ peerId: PEER_ID })
+let blockTrackers = false
 
 // WebTorrent-to-HTTP streaming sever
 let server = null
@@ -61,6 +62,8 @@ function init () {
 
   ipcRenderer.on('wt-set-global-trackers', (e, globalTrackers) =>
     setGlobalTrackers(globalTrackers))
+  ipcRenderer.on('wt-set-tracker-blocking', (e, shouldBlock) =>
+    setTrackerBlocking(shouldBlock))
   ipcRenderer.on('wt-start-torrenting', (e, torrentKey, torrentID, path, fileModtimes, selections) =>
     startTorrenting(torrentKey, torrentID, path, fileModtimes, selections))
   ipcRenderer.on('wt-stop-torrenting', (e, infoHash) =>
@@ -97,7 +100,22 @@ function listenToClientEvents () {
 
 // Sets the default trackers
 function setGlobalTrackers (globalTrackers) {
-  globalThis.WEBTORRENT_ANNOUNCE = globalTrackers
+  if (blockTrackers) {
+    globalThis.WEBTORRENT_ANNOUNCE = []
+  } else {
+    globalThis.WEBTORRENT_ANNOUNCE = globalTrackers
+  }
+}
+
+// Enable or disable tracker blocking
+function setTrackerBlocking (shouldBlock) {
+  blockTrackers = shouldBlock
+  if (blockTrackers) {
+    console.log('Tracker blocking enabled - DHT-only mode')
+    globalThis.WEBTORRENT_ANNOUNCE = []
+  } else {
+    console.log('Tracker blocking disabled')
+  }
 }
 
 // Starts a given TorrentID, which can be an infohash, magnet URI, etc.
@@ -105,10 +123,31 @@ function setGlobalTrackers (globalTrackers) {
 function startTorrenting (torrentKey, torrentID, path, fileModtimes, selections) {
   console.log('starting torrent %s: %s', torrentKey, torrentID)
 
-  const torrent = client.add(torrentID, {
+  let processedTorrentID = torrentID
+  const options = {
     path,
     fileModtimes
-  })
+  }
+
+  // If tracker blocking is enabled, strip all trackers
+  if (blockTrackers) {
+    console.log('Blocking trackers for torrent %s', torrentKey)
+
+    // If it's a magnet URI, parse and remove trackers
+    if (typeof torrentID === 'string' && torrentID.startsWith('magnet:')) {
+      const parseTorrent = require('parse-torrent')
+      const parsed = parseTorrent(torrentID)
+      parsed.announce = []
+      parsed.tr = []
+      processedTorrentID = parseTorrent.toMagnetURI(parsed)
+      console.log('Stripped trackers from magnet URI')
+    }
+
+    // For all torrent types, explicitly set announce to empty
+    options.announce = []
+  }
+
+  const torrent = client.add(processedTorrentID, options)
   torrent.key = torrentKey
 
   // Listen for ready event, progress notifications, etc
